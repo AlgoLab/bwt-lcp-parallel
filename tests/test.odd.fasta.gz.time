@@ -1,0 +1,12 @@
+Command being timed: "./bwt_lcp tests/test.odd.fasta.gz"
+User time (seconds): 2.24
+System time (seconds): 6.25
+Percent of CPU this job got: 205%
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:04.13
+Maximum resident set size (kbytes): 12012
+Major (requiring I/O) page faults: 10606
+Minor (reclaiming a frame) page faults: 193024
+Voluntary context switches: 230380
+Involuntary context switches: 1052
+File system outputs: 95184
+Page size (bytes): 4096

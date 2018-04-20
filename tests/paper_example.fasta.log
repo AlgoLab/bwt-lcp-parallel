@@ -1,0 +1,16 @@
+Using 4 threads.
+longest read length = 4
+number of reads = 3
+Preparing arrays S_l...
+Computing partial BWT...
+Computing interleave and LCP...
+ - iteration 1
+   - compute IX.
+   - compute Qp
+ - iteration 2
+   - compute IX.
+   - compute Qp
+ - iteration 3
+   - compute IX....
+Computing BWT...
+Done.
