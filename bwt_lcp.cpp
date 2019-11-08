@@ -35,6 +35,12 @@ void fill_with_0(T* const v) {
   for (unsigned i = 0; i < N; ++i) v[i] = static_cast<T>(0);
 }
 
+template <typename T>
+inline
+T atleast1(T num) {
+  return num >= 1 ? num : 1;
+}
+
 struct base_env_t {
   const strlen_t k;
   const strnum_t m;
@@ -61,7 +67,8 @@ struct base_env_t {
       E(static_cast<luint_t>(_m)*(_k+1), false)
   {
     const luint_t tot = static_cast<luint_t>(m)*(k+1);
-    const luint_t step = tot/concurrency_level + ((tot%concurrency_level)>(concurrency_level/2) ? 1 : 0);
+    const luint_t step =
+      atleast1(tot/concurrency_level + ((tot%concurrency_level)>(concurrency_level/2) ? 1 : 0));
     for (luint_t i = 0, pos = step; i<concurrency_level-1; ++i, pos += step) {
       midpoints[i] = pos;
     }
@@ -82,6 +89,8 @@ struct bfv_env_t {
   lcp_writer_t LCP;
   const strlen_t k;
   bool has_pseg_wider_than_1;
+  std::vector<luint_t> end_pos;
+  std::vector<std::vector<strnum_t>> end_pos_Qp;
 
   bfv_env_t(const base_env_t& base_env)
     : LCP(base_env.LCP.clone()),
@@ -202,8 +211,6 @@ void compute_interleave_LCP_segment(
                                     const luint_t segm_b, const luint_t segm_e,
                                     const strlen_t p,
                                     const std::vector<strnum_t>& Qppos,
-                                    std::vector<luint_t>& end_pos,
-                                    std::vector<std::vector<strnum_t>>& end_pos_Qp,
                                     unsigned idx
 ) {
   std::cout << ".";
@@ -226,6 +233,8 @@ void compute_interleave_LCP_segment(
   luint_t Lpos[ALPHSIZE];
   luint_t b = segm_b;
   bool has_pseg_wider_than_1 = false;
+  bfv_env.end_pos.clear();
+  bfv_env.end_pos_Qp.clear();
   IX0.seek(segm_b);
   IX1.seek(ALPHSIZE-1, segm_b);
   for (luint_t i = segm_b; i < segm_e; ++i) {
@@ -236,9 +245,9 @@ void compute_interleave_LCP_segment(
     ++Lcount[c];
     if (E[i]) {
       ///printf("finished segment at pos %lu\n", i);
-      if ((i+1 >= base_env.midpoints[idx-1]) & (i+1 < end_pos[idx] || end_pos[idx] == 0)) {
-        end_pos[idx] = i+1;
-        std::copy_n(Qppos_int.begin(), k+1, end_pos_Qp[idx].begin());
+      if (i+1 >= base_env.midpoints[idx-1]) {
+        bfv_env.end_pos.push_back(i + 1);
+        bfv_env.end_pos_Qp.push_back(Qppos_int);
         ++idx;
       }
       if (b==i) {
@@ -285,14 +294,12 @@ void worker_IX(const unsigned idx,
                base_env_t& base_env,
                bfv_env_t& bfv_env,
                const std::vector<luint_t>& this_end_pos,
-               const std::vector<std::vector<strnum_t>>& this_end_pos_Qp,
-               std::vector<luint_t>& end_pos,
-               std::vector<std::vector<strnum_t>>& end_pos_Qp
+               const std::vector<std::vector<strnum_t>>& this_end_pos_Qp
                ) {
   const luint_t segm_b = this_end_pos[idx-1];
   const luint_t segm_e = this_end_pos[idx];
   compute_interleave_LCP_segment(base_env, bfv_env, segm_b, segm_e, base_env.p,
-                                 this_end_pos_Qp[idx-1], end_pos, end_pos_Qp, idx);
+                                 this_end_pos_Qp[idx-1], idx);
 }
 
 void worker_Qp(std::atomic<luint_t>& shared_l,
@@ -362,9 +369,8 @@ void compute_interleave_LCP(
   bool has_pseg_wider_than_1 = true;
   base_env_t base_env{k, m, IX_names, LCP};
 
-  std::vector<luint_t> end_pos(concurrency_level+1, 0);
+  std::vector<luint_t> end_pos(concurrency_level+1, tot);
   end_pos[0] = 0;
-  end_pos[1] = tot;
   std::vector<std::vector<strnum_t>> end_pos_Qp(concurrency_level+1, std::vector<strnum_t>(k+1, 0));
   std::vector<bfv_env_t> bfv_envs;
   for (unsigned idx = 0; idx < concurrency_level; ++idx)
@@ -389,8 +395,7 @@ void compute_interleave_LCP(
         threads
           .emplace_back(worker_IX,
                         idx, std::ref(base_env), std::ref(bfv_envs[idx-1]),
-                        std::cref(this_end_pos), std::cref(this_end_pos_Qp),
-                        std::ref(end_pos), std::ref(end_pos_Qp)
+                        std::cref(this_end_pos), std::cref(this_end_pos_Qp)
                         );
       }
       for (auto& t: threads) {
@@ -398,6 +403,42 @@ void compute_interleave_LCP(
       }
       for (unsigned j = 0; j < idx-1; ++j) {
         has_pseg_wider_than_1 |= bfv_envs[j].has_pseg_wider_than_1;
+      }
+      std::vector<size_t> pos(idx-1, 0);
+      unsigned midi = 0;
+      unsigned finished = 0;
+      for (unsigned j = 0; j < idx-1; ++j) {
+        while (pos[j] < bfv_envs[j].end_pos.size() &&
+               bfv_envs[j].end_pos[pos[j]] <  base_env.midpoints[midi]) {
+          ++pos[j];
+        }
+        if (pos[j] >= bfv_envs[j].end_pos.size()) ++finished;
+      }
+      while (finished < idx - 1) {
+        luint_t cmin_j = 0;
+        for (unsigned j = 0; j < idx-1; ++j) {
+          if (
+              pos[j] < bfv_envs[j].end_pos.size() &&
+              bfv_envs[j].end_pos[pos[j]] >= base_env.midpoints[midi] &&
+              (bfv_envs[j].end_pos[pos[j]] < bfv_envs[cmin_j].end_pos[pos[cmin_j]] ||
+               bfv_envs[cmin_j].end_pos[pos[cmin_j]] < base_env.midpoints[midi])
+              ) {
+            cmin_j = j;
+          }
+        }
+        if (pos[cmin_j] >= bfv_envs[cmin_j].end_pos.size()) break;
+        end_pos[midi+1]= bfv_envs[cmin_j].end_pos[pos[cmin_j]];
+        end_pos_Qp[midi+1] = bfv_envs[cmin_j].end_pos_Qp[pos[cmin_j]];
+        ++midi;
+        ++pos[cmin_j];
+        finished = 0;
+        for (unsigned j = 0; j < idx-1; ++j) {
+          while (pos[j] < bfv_envs[j].end_pos.size() &&
+                 bfv_envs[j].end_pos[pos[j]] <  base_env.midpoints[midi]) {
+            ++pos[j];
+          }
+          if (pos[j] >= bfv_envs[j].end_pos.size()) ++finished;
+        }
       }
       base_env.Qp.clear();
       std::cout << std::endl;
