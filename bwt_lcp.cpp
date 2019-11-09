@@ -468,6 +468,7 @@ void compute_interleave_LCP(
     }
   }
   rename_file(IX_names[base_env.p%2], IXk_name);
+  remove_file(IX_names[(base_env.p-1)%2]);
 }
 
 void compute_BWT(
@@ -489,6 +490,8 @@ void compute_BWT(
     const enc_nucl_t c = Bl[(l+1)%k1].read();
     B.write(c);
   }
+  remove_files(B_tpl);
+  remove_file(IXk_name);
 }
 
 int main(int argc, char *argv[]) {
