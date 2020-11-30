@@ -41,14 +41,14 @@ To run them, one can issue the command `make test`.
 
 ## Citation
 
-Paola Bonizzoni, Gianluca Della Vedova, Yuri Pirola, Marco Previtali, and Raffaella Rizzi (2019). 
+Paola Bonizzoni, Gianluca Della Vedova, Yuri Pirola, Marco Previtali, and Raffaella Rizzi (2019).  
 _Multithread Multistring Burrows–Wheeler Transform and Longest Common Prefix Array_.  
 Journal of Computational Biology, 26(9), 948–961.  
 
 DOI: [10.1089/cmb.2018.0230](https://doi.org/10.1089/cmb.2018.0230)
 
-Paola Bonizzoni, Gianluca Della Vedova, Serena Nicosia, Yuri Pirola,
-Marco Previtali, Raffaella Rizzi, _Divide and Conquer Computation of
-the Multi-string BWT and LCP Array_. CiE 2018: 107-117
+Paola Bonizzoni, Gianluca Della Vedova, Serena Nicosia, Yuri Pirola, Marco Previtali, and Raffaella Rizzi (2018).   
+_Divide and Conquer Computation of the Multi-string BWT and LCP Array_.  
+CiE 2018: 107-117
 
 DOI: [978-3-319-94418-0_11](https://doi.org/10.1007/978-3-319-94418-0_11)
